@@ -1,0 +1,59 @@
+/*
+horn_contiguity_from_a_shift([c-1,a,b],[c-1,a+1,b]);
+の確認用. 主に F1.
+*/
+load("2026-03-01-horn-by-gkz.rr");;
+load("2025-07-17-F1-F2-by-gkz.rr");;
+
+/*
+f1_contiguity_by_GKZ([a,b,bb,c],[a,b-1,bb,c]);
+との比較.
+ T=f1_contiguity_by_GKZ([c,c,-1,c],[c-1,c-1,-1,c-1] );
+ S=-1;
+ T=f1_contiguity_by_GKZ([a,a,a,a],[a+S,a+S,a+S,a+S] );
+ T=f1_contiguity_by_GKZ([c,c,-1,c],[c-1,c-1,-1,c-1] );
+*/
+
+ A=[[1,0,0,0,1,1],
+     [0,1,0,0,1,0],
+     [0,0,1,0,0,1],
+     [0,0,0,1,-1,-1]];;
+set_A(A);;
+/*
+ H_horn_str よりb
+ a1->a, a2->b, a3->bb, a4->c-1
+*/
+def horn_f1_contiguity_by_GKZ(ABCs,ABCt) {
+  As=ABCs[0]; Bs=ABCs[1]; BBs=ABCs[2]; Cs=ABCs[3]; 
+  At=ABCt[0]; Bt=ABCt[1]; BBt=ABCt[2]; Ct=ABCt[3]; 
+  // 次の引数は H_horn_str の a と F1の引数の並びの対応.
+  return horn_contiguity_from_a_shift([As,Bs,BBs,Cs-1],[At,Bt,BBt,Ct-1]);
+}
+
+//T0=f1_contiguity_by_GKZ0([[0,0,1,0,0,0],[0,0,0,1,0,1]],[a,b,bb-1,c]);
+
+//T1=horn_f1_contiguity_by_GKZ([a,b,bb,c],[a+1,b,bb,c]);
+
+
+def check_f1(ABCs,ABCt) {
+  printf("\nhorn contiguity --------------------------------------------\n");
+  T1=horn_f1_contiguity_by_GKZ(ABCs,ABCt);
+  T1b=base_replace([T1[0],T1[1]],[[x5,x],[dx5,dx],[x6,y],[dx6,dy]]);
+  printf("\nf1_contiguity (old one) ---------------------------------\n");
+  T2=f1_contiguity_by_GKZ(ABCs,ABCt);
+  if (base_set_minus(vars(red(T1b[0]/T2[0])),[a,b,c]) != []) error("contiguity does not agree.");
+  printf("contiguities[horn,prev]=%a\n",[fctr(T1b[0]),fctr(T2[0])]);
+  printf("bf's[horn,prev]        =%a\n",[fctr(T1b[1]),fctr(T2[1])]);
+  return 1;
+}
+//check_f1([a,b,bb,c],[a+1,b,bb,c]);
+check_f1([a,b,bb,c],[a-1,b,bb,c]);
+check_f1([a,b,bb,c],[a,b,bb,c+1]);
+/* 論文を見ていろんなパラメータで試す */
+check_f1([c,c,-1,c],[c-1,c-1,-1,c-1] );
+ S=-1;
+check_f1([a,a,a,a],[a+S,a+S,a+S,a+S] );
+check_f1([c,c,-1,c],[c-1,c-1,-1,c-1]); 
+
+
+end;;

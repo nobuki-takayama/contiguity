@@ -1,0 +1,52 @@
+/*
+horn_contiguity_from_a_shift([c-1,a,b],[c-1,a+1,b]);
+の確認用. 2026-03-03 開始
+*/
+load("2026-03-01-horn-by-gkz.rr");;
+
+printf("set_A for gauss ------------------ \n");;
+T=set_A([[1,0,0,-1],[0,1,0,1],[0,0,1,1]]);
+show_globals();;
+
+/*
+gauss_contiguity_by_GKZ([a,b,c],[a+1,b,c]);
+in 2025-04-01-contiguity.rr との比較.
+*/
+// set_A(A) の default は gauss なので省略.
+def horn_gauss_contiguity_by_GKZ(ABCs,ABCt) {
+  As=ABCs[0]; Bs=ABCs[1]; Cs=ABCs[2]; 
+  At=ABCt[0]; Bt=ABCt[1]; Ct=ABCt[2]; 
+  return horn_contiguity_from_a_shift([Cs-1,As,Bs],[Ct-1,At,Bt]);
+}
+
+/*
+horn_gauss_contiguity_by_GKZ([c,c,1],[c+1,c+1,1]);
+[(-2*c*x4*dx4-c^2)/(x4-1),1,[[0,c,c], -> ,[0,c+1,c+1]],[dx2*dx3,dx2*dx3,1,dx2*dx3]]
+
+gauss_contiguity_by_GKZ
+[(-2*c*x*dx-c^2)/(x-1),1,x^2*dx^2+(2*c+1)*x*dx+c^2,[[c,c,1],->,[c+1,c+1,1]],[dx2*dx3,dx2*dx3,1,dx2*dx3]]
+*/
+
+def check_gauss(ABCs,ABCt) {
+  printf("\nhorn contiguity --------------------------------------------\n");
+  T1=horn_gauss_contiguity_by_GKZ(ABCs,ABCt);
+  T1b=base_replace([T1[0],T1[1]],[[x4,x],[dx4,dx]]);
+  printf("\ngauss_contiguity (old one) ---------------------------------\n");
+  T2=gauss_contiguity_by_GKZ(ABCs,ABCt);
+  if (base_set_minus(vars(red(T1b[0]/T2[0])),[a,b,c]) != []) error("contiguity does not agree.");
+  printf("contiguities[horn,prev]=%a\n",[fctr(T1b[0]),fctr(T2[0])]);
+  printf("bf's[horn,prev]        =%a\n",[fctr(T1b[1]),fctr(T2[1])]);
+  return 1;
+}
+check_gauss([a,b,c],[a-1,b,c]);
+/* 論文を見ていろんなパラメータで試す */
+check_gauss([c,b,c],[c-1,b,c-1]);  // uv のとり方が異なる.
+check_gauss([c,b,c],[c+1,b,c+1]);
+/////////////////////////
+check_gauss([c,c,c],[c+1,c+1,c+1]);
+check_gauss([c,c,c],[c-1,c-1,c-1]);
+/////////////////////
+check_gauss([a,b,0],[a+1,b,0]);
+check_gauss([a,b,0],[a-1,b,0]);
+
+end;;
