@@ -1,0 +1,101 @@
+$ sage   # start SageMath
+sage: load("2025-07-23-representative.py")
+sage: f=representative([[1,0,0],[0,1,0],[0,0,1]],[0,0,0],gauss_contiguity,vars=[a,b,c])  # representatives of isomorphic classes.
+sage: f[0]    # the affine space that parameters move.
+sage: f[1]    # contiguity relations (step-up, step-down, b-function) for f[0]
+sage: f[2]    # f[2], f[3], ... are
+              # contiguity relations on the vanishing locus of each factor of b.
+              #    (collection of data of the format (f[0],f[1]))
+              # len(f)=2+ (number of factors)
+
+---------------------------------
+# F1
+sage: f1_contiguity_by_GKZ('[a,b,bp,c]','[a+1,b,bp,c]')
+# or
+sage: ring=PolynomialRing(QQ,'x,dx,y,dy,a,b,bp,c')
+sage: x,dx,y,dy,a,b,bp,c=ring.gens()
+sage: dic={'x':x,'dx':dx,'y':y,'dy':dy,'a':a,'b':b,'bp':bp,'c':c}
+sage: f1_contiguity([a,b,bp,c],[a+1,b,bp,c],r=ring) # contiguity
+sage: f=representative([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],[0,0,0,0],f1_contiguity,vars=[a,b,bp,c])
+
+# gauss_contiguity, f2_contiguity are also installed.
+---------------------------------
+2025-07-2-try-F2.py     # Appell F2 case. It will take a week (2025-08-13).
+
+---------------------------------
+$ openxm asir  # start Risa/Asir  or read the file below on emacs and start asir
+[2122] load("2025-07-17-F1-F2-by-gkz.rr");;
+T0=gauss_contiguity_by_GKZ([a,b,c],[a+1,b,c]);
+T1=gauss_contiguity_by_GKZ([a,b,a],[a-1,b,a-1]);
+T2=f1_contiguity_by_GKZ([a,b,bp,c],[a-1,b,bp,c]);
+T3=f2_contiguity_by_GKZ([c,c,-1,c,cp],[c+2,c+2,-1,c+2,cp]);
+
+# Note that contiguity relation is reduced in the rational Weyl algebra R.
+# When the option noreduce=1 is given, it is not reduced in R.
+T4=f1_contiguity_by_GKZ([a,b,bb,c],[a,b-1,bb,c] | noreduce=1);
+---------------------------------
+
+2025-08-31-rep.py
+List representative points and contiguity relations.
+-----------------------
+sage: load("2025-08-31-rep.py")
+sage: f=representative([[1,0,0],[0,1,0],[0,0,1]],[0,0,0],gauss_contiguity,vars=[a,b,c]
+sage: show_tree(f,0)
+
+A part of output:
+
+contiguity---
+[[[[0, a, a + 1], [0, a + 1, a + 2]], [(a, 1), (a + 1, 1)], [-x*dx + dx - a, a + 1], [x^2*dx - x*dx - a - 1, a]]]
+---contiguity   
+*/
+/*&C T.transpose()= [[0, 1, 1]]  offset= (0, 0, 1)
+ bf =  [(a, 1), (a + 1, 1)]       # b-functions
+*/
+matrix T= [0]
+[1]
+[1]
+offset = (0, 0, 1)   # [0,1,1]a+[0,0,1]=[0,a,a+1], cf. contiguity
+new_abc= (1)
+/*&C  (1)  -->  (0, 1, 2)  
+*/
+new_abc= (-5)
+/*&C  (-5)  -->  (0, -5, -4)  
+*/
+            (a, 1)
+            [[0, a, a + 1], [0, a + 1, a + 2]]
+/*&C 
+
+            ['0-dim face', (0, 0, 1), (a, 1)]
+*/
+
+            (a + 1, 1)
+            [[0, a, a + 1], [0, a + 1, a + 2]]
+/*&C 
+
+            ['0-dim face', (0, -1, 0), (a + 1, 1)]
+*/
+
+# The line [0,1,1]a+[0,0,1] is devided to 3 one-dimensional face
+# and two 0-dimensional face (0,0,1), (0,-1,0) standing for the zero set
+# of the b-function.
+
+--------------------
+2025-09-05-show_tree_nk.py
+List face defining inequalities, representative points.
+-----------------------
+sage: load("2025-07-23-representative.py")
+sage: load("2025-09-05-show_tree_nk.py")
+sage: f=representative([[1,0,0],[0,1,0],[0,0,1]],[0,0,0],gauss_contiguity,vars=[a,b,c]
+sage: show_tree(f,0)
+
+A part of output:
+[[1, 0, 0], [0, 1, 0], [0, 0, 1]] [0, 0, 0]  # For 3-dim faces
+bf [(-b + c, 1), (-b + c - 1, 1), (b, 1), (-a + c, 1), (-a + c - 1, 1), (a, 1)]
+pts
+(An inequality (-1, 1, 0) x + 1 >= 0, An inequality (0, -1, 0) x + 0 >= 0, An inequality (1, 0, -1) x + 0 >= 0, An inequality (0, 0, 1) x + 0 >= 0)
+None  # no integral point
+(An inequality (-1, 0, 1) x + 1 >= 0, An inequality (1, -1, 0) x + 0 >= 0, An inequality (0, 0, -1) x + 0 >= 0, An inequality (0, 1, 0) x + 0 >= 0)
+None  " no integral point
+(An inequality (0, 0, 1) x + 0 >= 0, An inequality (0, 1, 0) x + 0 >= 0, An inequality (1, -1, 0) x - 1 >= 0, An inequality (1, 0, -1) x - 1 >= 0)
+(3, 1, 1)
+[3, 1, 1]   # representative point

@@ -1,0 +1,112 @@
+import("2025-04-01-contiguity.rr");;
+//Xm_noX=1;;
+extern F0134_contiguity;;
+/*
+  2025-04-28
+ ABBCC=[a,b] of F0134
+*/
+
+def f0134_restriction() {
+  import("nk_restriction.rr");
+  A=[[1,0,-2,-3],
+     [0,1,3,4]];;
+  Beta=[b1,b2];;
+  F0=sm1.gkz([A,Beta]);
+  XL=F0[1];
+  Dx=poly_dvar(XL);
+  F=base_replace(F0[0],[[x1,x1+1],[x2,x2+1]]);
+  /* todo, 2024 の myrestriction を使う必要あり? */
+  G=nk_restriction.restriction_ideal(F,XL,Dx,[1,1,0,0]|param=Beta,s0=0);
+  return G;
+}
+/*
+G=f0134_restriction();
+G2=base_replace(G,[[x3,x],[x4,y],[dx3,dx],[dx4,dy]]);
+*/
+
+def f0134_contiguity_by_GKZ0(UV,AB) {
+  extern F0134_contiguity;
+  A=[[1,0,-2,-3],
+     [0,1,3,4]];;
+  Beta=[b1,b2];;
+  F0=sm1.gkz([A,Beta]);
+  XL=F0[1];
+  Dx=poly_dvar(XL);
+  if (type(getopt(beta2))>0) {
+    T=getopt(beta2);
+    Rule=[[b1,T[0]],[b2,T[1]]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }else{
+    Rule=[[b1,AB[0]],[b2,AB[1]]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }
+  Cont=uv_contiguity(UV,A,Beta2);
+  [Beta2_shift_s,Beta2_shift_t]=shift_beta(Beta2,UV,A);
+  ABC_shift_s=[Beta2_shift_s[0],Beta2_shift_s[1]];
+  ABC_shift_t=[Beta2_shift_t[0],Beta2_shift_t[1]];
+  B_dxv=Cont[0];
+  E=Cont[1];
+  /* 後ろ2変数が残るならこれで OK. 前の変数を 1 に置き換えるrule*/
+  printf("at_one...=%a\n",at_one_rule(reverse(cdr(cdr(reverse(XL)))))); 
+  E2=base_replace(E,at_one_rule(reverse(cdr(cdr(reverse(XL))))));
+  Witness=newvect(length(A));
+  E2_elim=lr_red(E2,A,XL,Beta2_shift_s,Witness);
+  Xrule=[[x3,x],[x4,y],[dx3,dx],[dx4,dy]];
+  E2_elim=base_replace(E2_elim,Xrule);
+  /* E dx^u = b dx^v   */
+  if (type(getopt(noreduce))>0) {
+    return [E2_elim,Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }else{
+    return F0134_contiguity=[reduce_F0134(E2_elim,ABC_shift_s),Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }
+}
+def reduce_F0134(F,AB) {
+  yang.define_ring(["partial",[x,y]]);
+  /* data obtained by f0134_restriction() */
+  G=map(base_replace,
+       [-4*y*dx^3+(-3*y*dy-b1-4)*dx^2+(-3*b2+15)*x*dy*dx-y*x*dy^3+((-3*b1-2*b2-2)*x+(-4*b2+20)*y)*dy^2+(b2^2-9*b2+20)*dy,-3*dx^4-2*dy*dx^3+y*dy^4+(3*b1+2*b2+3)*dy^3,(-12*b1-9*b2+6)*y*dx^2+(((27*b1+27)*x^2+((36*b2-72)*y+4*b1+4)*x+(-b1-1)*y)*dy+(-9*b2^2+27*b2-18)*x-3*b1^2+(-2*b2-3)*b1-2*b2)*dx+((36*b1-3*b2+42)*y*x+(48*b2-96)*y^2+(6*b1+6)*y)*dy^2+(((-18*b2+54)*b1-6*b2^2+42)*x+(-24*b2^2+108*b2-120)*y+2*b1^2+8*b1+6)*dy+3*b2^3-9*b2^2+6*b2,dx^3+3*x*dy^2*dx+4*y*dy^3+(-b2+8)*dy^2,3*x*dx^2+((2*x+4*y)*dy-b2+3)*dx+3*y*dy^2+(b1+3)*dy],
+     [[b1,AB[0]],[b2,AB[1]]]);
+  G2=map(dp_ptod,G,[dx,dy]);
+  G2=yang.buchberger(G2);
+  Fd=dn(F); F=nm(F);
+  F0134=yang.reduction(dp_ptod(F,[dx,dy]),G2);
+  return red(dp_dtop(F0134[0],[dx,dy])/(F0134[1]*Fd));
+}
+
+def find_u_v_beta_F0134(ABCs,ABCt) {
+  Beta_s=newvect(2,[ABCs[0],ABCs[1]]);
+  Beta_t=newvect(2,[ABCt[0],ABCt[1]]);
+  W=Beta_t-Beta_s;
+  U=newvect(4);V=newvect(4);
+  for (I=0; I<length(W); I++) {
+    if (vars(W[I])!=[]) {
+      print("Error in ABC argument."); debug();
+    }
+    if (W[I]>0) U[I]=W[I];
+    if (W[I]<0) V[I]=-W[I];
+  }
+  A=[[1,0,-2,-3],
+     [0,1,3,4]];;
+  A=matrix_list_to_matrix(A);
+  Beta=Beta_s+A*U;
+  return [U,V,vtol(Beta)];
+}
+
+/*
+T300=f0134_contiguity_by_GKZ0([[0,0,0,0],[1,0,0,0]],[b1,b2]);
+T301=f0134_contiguity_by_GKZ0([[1,0,0,0],[0,0,0,0]],[b1,b2]);
+T302=f0134_contiguity_by_GKZ0([[1,0,0,0],[0,0,0,1]],[b1,b1]);
+*/
+
+def f0134_contiguity_by_GKZ(ABCs,ABCt) {
+  if (type(getopt(noreduce))>0) NoReduce=1; else NoReduce=0;
+  dp_ord(0);
+  T=find_u_v_beta_F0134(ABCs,ABCt);
+  Ans=f0134_contiguity_by_GKZ0([T[0],T[1]],0|beta2=T[2],noreduce=NoReduce);
+  dp_ord(0);
+  return Ans;
+}
+
+end;;

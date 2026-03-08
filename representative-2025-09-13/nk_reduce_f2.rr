@@ -1,0 +1,20 @@
+import("yang.rr");;
+
+def nk_reduce_F2(F,ABC) {
+  yang.define_ring(["partial",[x,y]]);
+  dp_ord(0);
+  G=map(base_replace,
+     [x*(1-x)*dx^2-x*y*dx*dy+(t_c-(t_a+t_b+1)*x)*dx-t_b*y*dy-t_a*t_b,
+      y*(1-y)*dy^2-y*x*dy*dx+(t_cp-(t_a+t_bp+1)*y)*dy-t_bp*x*dx-t_a*t_bp],
+     [[t_a,ABC[0]],[t_b,ABC[1]],[t_bp,ABC[2]],[t_c,ABC[3]],[t_cp,ABC[4]]]);
+  G2=map(dp_ptod,G,[dx,dy]);
+  G2=yang.buchberger(G2);
+  Fd=dn(F); F=nm(F);
+  F2=yang.reduction(dp_ptod(F,[dx,dy]),G2);
+  return red(dp_dtop(F2[0],[dx,dy])/(F2[1]*Fd));
+}
+
+def nk_reduce_f2(F,ABC) { return nk_reduce_F2(F,ABC); }
+
+
+end;;
