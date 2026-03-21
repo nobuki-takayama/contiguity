@@ -1,0 +1,419 @@
+/*
+ modify 2025-04-01-F2-contiguity-by-GKZ.rr
+ and add F1 case.
+*/
+load("2025-04-01-contiguity.rr");;
+
+extern F2_contiguity;;
+/*
+ ABBCC=[a,b,b',c,c'] of F2
+*/
+
+def f2_contiguity_by_GKZ0(UV,ABBCC) {
+  extern F2_contiguity;
+  A=[[1,0,0,0,0,1,1],
+     [0,1,0,0,0,1,0],
+     [0,0,1,0,0,0,1],
+     [0,0,0,1,0,-1,0],
+     [0,0,0,0,1,0,-1]];;
+  Beta=[b1,b2,b3,b4,b5];;
+  F0=sm1.gkz([A,Beta]);
+  XL=F0[1];
+  Dx=poly_dvar(XL);
+  if (type(getopt(beta2))>0) {
+    T=getopt(beta2);
+    Rule=[[b1,T[0]],[b2,T[1]],[b3,T[2]],
+          [b4,T[3]],[b5,T[4]]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }else{
+    Rule=[[b1,-ABBCC[0]],[b2,-ABBCC[1]],[b3,-ABBCC[2]],
+          [b4,ABBCC[3]-1],[b5,ABBCC[4]-1]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }
+  Cont=uv_contiguity(UV,A,Beta2);
+  [Beta2_shift_s,Beta2_shift_t]=shift_beta(Beta2,UV,A);
+  ABC_shift_s=[-Beta2_shift_s[0],-Beta2_shift_s[1],-Beta2_shift_s[2],
+	       Beta2_shift_s[3]+1,Beta2_shift_s[4]+1];
+  ABC_shift_t=[-Beta2_shift_t[0],-Beta2_shift_t[1],-Beta2_shift_t[2],
+	       Beta2_shift_t[3]+1,Beta2_shift_t[4]+1];
+  B_dxv=Cont[0];
+  E=Cont[1];
+  printf("at_one...=%a\n",at_one_rule(reverse(cdr(cdr(reverse(XL)))))); 
+  E2=base_replace(E,at_one_rule(reverse(cdr(cdr(reverse(XL))))));
+  Witness=newvect(length(A));
+  E2_elim=lr_red(E2,A,XL,Beta2_shift_s,Witness);
+  Xrule=[[x6,x],[x7,y],[dx6,dx],[dx7,dy]];
+  E2_elim=base_replace(E2_elim,Xrule);
+  /* E dx^u = b dx^v   */
+  if (type(getopt(noreduce))>0) {
+    return [E2_elim,Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }else{
+    return F2_contiguity=[reduce_F2(E2_elim,ABC_shift_s),Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }
+}
+def reduce_F2(F,ABC) {
+  yang.define_ring(["partial",[x,y]]);
+  G=map(base_replace,
+     [x*(1-x)*dx^2-x*y*dx*dy+(t_c-(t_a+t_b+1)*x)*dx-t_b*y*dy-t_a*t_b,
+      y*(1-y)*dy^2-y*x*dy*dx+(t_cp-(t_a+t_bp+1)*y)*dy-t_bp*x*dx-t_a*t_bp],
+     [[t_a,ABC[0]],[t_b,ABC[1]],[t_bp,ABC[2]],[t_c,ABC[3]],[t_cp,ABC[4]]]);
+  G2=map(dp_ptod,G,[dx,dy]);
+  G2=yang.buchberger(G2);
+  Fd=dn(F); F=nm(F);
+  F2=yang.reduction(dp_ptod(F,[dx,dy]),G2);
+  return red(dp_dtop(F2[0],[dx,dy])/(F2[1]*Fd));
+}
+/*
+T300=f2_contiguity_by_GKZ0([[0,0,0,0,0,0,0],[1,0,0,0,0,0,0]],[a,b,bp,c,cp]);
+T301=f2_contiguity_by_GKZ0([[1,0,0,0,0,0,0],[0,0,0,0,0,0,0]],[a,b,bp,c,cp]);
+T302=f2_contiguity_by_GKZ0([[1,0,0,0,0,0,0],[0,0,0,1,0,0,0]],[c-1,b,bp,c,cp]);
+*/
+def find_u_v_beta_F2(ABCs,ABCt) {
+  Beta_s=newvect(5,[-ABCs[0],-ABCs[1],-ABCs[2],ABCs[3]-1,ABCs[4]-1]);
+  Beta_t=newvect(5,[-ABCt[0],-ABCt[1],-ABCt[2],ABCt[3]-1,ABCt[4]-1]);
+  W=Beta_t-Beta_s;
+  U=newvect(7);V=newvect(7);
+  for (I=0; I<length(W); I++) {
+    if (vars(W[I])!=[]) {
+      print("Error in ABC argument."); debug();
+    }
+    if (W[I]>0) U[I]=W[I];
+    if (W[I]<0) V[I]=-W[I];
+  }
+  A=[[1,0,0,0,0,1,1],
+     [0,1,0,0,0,1,0],
+     [0,0,1,0,0,0,1],
+     [0,0,0,1,0,-1,0],
+     [0,0,0,0,1,0,-1]];;
+  A=matrix_list_to_matrix(A);
+  Beta=Beta_s+A*U;
+  return [U,V,vtol(Beta)];
+}
+
+def f2_contiguity_by_GKZ(ABCs,ABCt) {
+  if (type(getopt(noreduce))>0) NoReduce=1; else NoReduce=0;
+  dp_ord(0);
+  T=find_u_v_beta_F2(ABCs,ABCt);
+  Ans=f2_contiguity_by_GKZ0([T[0],T[1]],0|beta2=T[2],noreduce=NoReduce);
+  dp_ord(0);
+  return Ans;
+}
+/*
+T302b=f2_contiguity_by_GKZ([c,b,bp,c,cp],[c-1,b,bp,c-1,cp]);
+*/
+/*
+ f2_contiguity_by_GKZ([c,c,-1,c,cp],[c+1,c+1,-1,c+1,cp]); 
+bug fixed of reduce_f2.
+cf. nk_f2_cont.rr f2_cont(c,c,-1,cp)  c の contiguity.
+todo: step-down operator が nk_f2_cont と一致しない.
+*/
+
+/* 2025.03.29 check by series */
+def mypoch(A,N) {
+  if (N==0) return 1;
+  S=1;
+  for (I=0; I<N; I++) S = S*(A+I);
+  return S;
+}
+def f2_series(V,ABC,Approx) {
+  X=V[0]; Y=V[1];
+  S=0;
+  for (I=0; I<Approx; I++) {
+    for (J=0; J<Approx; J++) {
+      Dn=fac(I)*fac(J)*mypoch(ABC[3],I)*mypoch(ABC[4],J);
+      S = S+X^I*Y^J*mypoch(ABC[0],I+J)*mypoch(ABC[1],I)*mypoch(ABC[2],J)/Dn;
+    }
+  }
+  return S;
+}
+
+/* ---------- F1 ------------- 
+       F1 
+   ---------- F1 -------------
+*/
+extern F1_contiguity;;
+/*
+ ABBCC=[a,b,b',c] of F1
+*/
+
+def f1_series(V,ABC,Approx) {
+  X=V[0]; Y=V[1];
+  S=0;
+  for (I=0; I<Approx; I++) {
+    for (J=0; J<Approx; J++) {
+      Dn=fac(I)*fac(J)*mypoch(ABC[3],I+J);
+      S = S+X^I*Y^J*mypoch(ABC[0],I+J)*mypoch(ABC[1],I)*mypoch(ABC[2],J)/Dn;
+    }
+  }
+  return S;
+}
+
+def f1_contiguity_by_GKZ0(UV,ABBCC) {
+  extern F1_contiguity;
+  A=[[1,0,0,0,1,1],
+     [0,1,0,0,1,0],
+     [0,0,1,0,0,1],
+     [0,0,0,1,-1,-1]];
+
+  Beta=[b1,b2,b3,b4];;
+  F0=sm1.gkz([A,Beta]);
+  XL=F0[1];
+  Dx=poly_dvar(XL);
+  if (type(getopt(beta2))>0) {
+    T=getopt(beta2);
+    Rule=[[b1,T[0]],[b2,T[1]],[b3,T[2]],
+          [b4,T[3]]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }else{
+    /* beta=(-a,-b,-b',c-1) page 12. */
+    Rule=[[b1,-ABBCC[0]],[b2,-ABBCC[1]],[b3,-ABBCC[2]],
+          [b4,ABBCC[3]-1]];
+    F=base_replace(F0[0],Rule);
+    Beta2=base_replace(Beta,Rule);
+  }
+  Cont=uv_contiguity(UV,A,Beta2);
+  [Beta2_shift_s,Beta2_shift_t]=shift_beta(Beta2,UV,A);
+  ABC_shift_s=[-Beta2_shift_s[0],-Beta2_shift_s[1],-Beta2_shift_s[2],
+	       Beta2_shift_s[3]+1];
+  ABC_shift_t=[-Beta2_shift_t[0],-Beta2_shift_t[1],-Beta2_shift_t[2],
+	       Beta2_shift_t[3]+1];
+  B_dxv=Cont[0];
+  E=Cont[1];
+  printf("at_one...=%a\n",at_one_rule(reverse(cdr(cdr(reverse(XL)))))); 
+  E2=base_replace(E,at_one_rule(reverse(cdr(cdr(reverse(XL))))));
+  Witness=newvect(length(A));
+  E2_elim=lr_red(E2,A,XL,Beta2_shift_s,Witness);
+  Xrule=[[x5,x],[x6,y],[dx5,dx],[dx6,dy]];
+  E2_elim=base_replace(E2_elim,Xrule);
+  /* E dx^u = b dx^v   */
+  if (type(getopt(noreduce))>0) {
+    return [E2_elim,Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }else{
+    return F1_contiguity=[reduce_F1(E2_elim,ABC_shift_s),Bf=red(B_dxv/v2mon(Dx,UV[1])),[ABC_shift_s," -> ",ABC_shift_t],[E,B_dxv,v2mon(Dx,UV[0]),v2mon(Dx,UV[1])]];
+  }
+}
+def reduce_F1(F,ABC) {
+  yang.define_ring(["partial",[x,y]]);
+  G=map(base_replace,
+     [x*(1-x)*dx^2+y*(1-x)*dx*dy+(t_c-(t_a+t_b+1)*x)*dx-t_b*y*dy-t_a*t_b,
+      y*(1-y)*dy^2+x*(1-y)*dy*dx+(t_c-(t_a+t_bp+1)*y)*dy-t_bp*x*dx-t_a*t_bp,
+      (x-y)*dx*dy-t_bp*dx+t_b*dy
+      ],
+     [[t_a,ABC[0]],[t_b,ABC[1]],[t_bp,ABC[2]],[t_c,ABC[3]]]);
+  G2=map(dp_ptod,G,[dx,dy]);
+  G2=yang.buchberger(G2);
+  Fd=dn(F); F=nm(F);
+  F2=yang.reduction(dp_ptod(F,[dx,dy]),G2);
+  return red(dp_dtop(F2[0],[dx,dy])/(F2[1]*Fd));
+}
+/*
+T300=f1_contiguity_by_GKZ0([[0,0,0,0,0,0],[1,0,0,0,0,0]],[a,b,bp,c]);
+T301=f1_contiguity_by_GKZ0([[1,0,0,0,0,0],[0,0,0,0,0,0]],[a,b,bp,c]);
+T302=f1_contiguity_by_GKZ0([[1,0,0,0,0,0],[0,0,0,1,0,0]],[c-1,b,bp,c]);
+*/
+def find_u_v_beta_F1(ABCs,ABCt) {
+  Beta_s=newvect(4,[-ABCs[0],-ABCs[1],-ABCs[2],ABCs[3]-1]);
+  Beta_t=newvect(4,[-ABCt[0],-ABCt[1],-ABCt[2],ABCt[3]-1]);
+  W=Beta_t-Beta_s;
+  U=newvect(6);V=newvect(6);
+  for (I=0; I<length(W); I++) {
+    if (vars(W[I])!=[]) {
+      print("Error in ABC argument."); debug();
+    }
+    if (W[I]>0) U[I]=W[I];
+    if (W[I]<0) V[I]=-W[I];
+  }
+  A=[[1,0,0,0,1,1],
+     [0,1,0,0,1,0],
+     [0,0,1,0,0,1],
+     [0,0,0,1,-1,-1]];
+
+  A=matrix_list_to_matrix(A);
+  Beta=Beta_s+A*U;
+  return [U,V,vtol(Beta)];
+}
+
+def f1_contiguity_by_GKZ(ABCs,ABCt) {
+  if (type(getopt(noreduce))>0) NoReduce=1; else NoReduce=0;
+  dp_ord(0);
+  T=find_u_v_beta_F1(ABCs,ABCt);
+  Ans=f1_contiguity_by_GKZ0([T[0],T[1]],0|beta2=T[2],noreduce=NoReduce);
+  dp_ord(0);
+  return Ans;
+}
+
+
+/* F2 のテスト (2025-04-01) を F1 のテストに変更する. 
+*/
+/*  kimura hypergeometric
+  (c-b-a*x) + x(1-x)*dx - x*y*dy  over c-b
+*/
+def test0() {
+  dp_ord(0);
+  T=f1_contiguity_by_GKZ([a,b,bb,c],[a,b-1,bb,c] | noreduce=1);
+  printf("contiguity T=%a\n",T);
+  Rule=[[a,1/2],[b,1/3],[bb,1/5],[c,1/7]];
+  Rule_shift=[[a,1/2],[b,1/3-1],[bb,1/5],[c,1/7]];
+  Op=base_replace(T[0],Rule);
+  printf("Op=%a\n",Op);
+  F=f1_series([x,y],base_replace([a,b,bb,c],Rule),5);
+  F2=f1_series([x,y],base_replace([a,b,bb,c],Rule_shift),5);
+  T=poly_dact(Op,F,[x,y]);
+  Rule_t=[[x,t],[y,13*t]];
+  T2=red(base_replace(T,Rule_t));
+  C=coef(T2,0,t);
+  return T2/C-base_replace(F2,Rule_t);
+}
+// test0();  //OK  */
+
+
+def test1() {
+  dp_ord(0);
+  T=f1_contiguity_by_GKZ([a,b,bb,c],[a-1,b,bb,c] | noreduce=0);
+  printf("contiguity T=%a\n",T);
+  Rule=[[a,1/2],[b,1/3],[bb,1/5],[c,1/7]];
+  Rule_shift=[[a,1/2-1],[b,1/3],[bb,1/5],[c,1/7]];
+  Op=base_replace(T[0],Rule);
+  printf("Op=%a\n",Op);
+  F=f1_series([x,y],base_replace([a,b,bb,c],Rule),5);
+  F2=f1_series([x,y],base_replace([a,b,bb,c],Rule_shift),5);
+  T=poly_dact(Op,F,[x,y]);
+  Rule_t=[[x,t],[y,13*t]];
+  T2=red(base_replace(T,Rule_t));
+  C=coef(T2,0,t);
+  return T2/C-base_replace(F2,Rule_t);
+}
+/* test1();  //OK */
+
+def test2() {
+  dp_ord(0);
+  T=f1_contiguity_by_GKZ([c,c,-1,c],[c-1,c-1,-1,c-1] );
+  printf("contiguity T=%a\n",T);
+  Rule=[[a,1/7],[b,1/7],[bb,-1],[c,1/7]]; /* ここの数に注意 */
+  Rule_shift=[[a,1/7-1],[b,1/7-1],[bb,-1],[c,1/7-1]];
+  RuleX=[[x5,x],[dx5,dx],[x6,y],[dx6,dy]];
+  Op=base_replace(T[0],append(Rule,RuleX));
+  printf("Op=%a\n",Op);
+  F=f1_series([x,y],base_replace([a,b,bb,c],Rule),5);
+  F2=f1_series([x,y],base_replace([a,b,bb,c],Rule_shift),5);
+  T=poly_dact(Op,F,[x,y]);
+  Rule_t=[[x,t],[y,13*t]];
+  T2=base_replace(T,Rule_t);
+  C=coef(T2,0,t);
+  return T2/C-base_replace(F2,Rule_t);
+}
+//TTT=test2();
+
+def test3() {
+  dp_ord(0);
+  S=1;  /* S=-1, OK.  S=2 は時間がかかる */
+  T=f1_contiguity_by_GKZ([a,a,a,a],[a+S,a+S,a+S,a+S] );
+  printf("contiguity T=%a\n",T);
+  Rule=[[a,1/7],[b,1/7],[bb,1/7],[c,1/7]]; /* ここの数に注意 */
+  Rule_shift=[[a,1/7+S],[b,1/7+S],[bb,1/7+S],[c,1/7+S]];
+  RuleX=[[x5,x],[dx5,dx],[x6,y],[dx6,dy]];
+  Op=base_replace(T[0],append(Rule,RuleX));
+  printf("Op=%a\n",Op);
+  F=f1_series([x,y],base_replace([a,b,bb,c],Rule),6);
+  F2=f1_series([x,y],base_replace([a,b,bb,c],Rule_shift),6);
+  T=red(poly_dact(Op,F,[x,y]));
+  printf("T=%a\n",T);
+  Rule_t=[[x,t],[y,13*t]];
+  T2=base_replace(T,Rule_t);
+  C=coef(T2,0,t);
+  printf("T/C-F2=%a\n",red(T/C-F2));
+  return T2/C-base_replace(F2,Rule_t);
+}
+//TTT=test3();
+
+/*
+Example:
+ T=f1_contiguity_by_GKZ([c,c,-1,c],[c-1,c-1,-1,c-1] 
+*/
+
+/* 2025.07.24  とりあえずの版　*/
+def c1f1_contiguity(Old,New) {
+  Step=newvect(2,New)-newvect(2,Old);
+  Comm=rtostr(Old)+"->"+rtostr(New);
+  if (length(vars(Old))==2) {
+    A=vars(Old[0])[0]; C=vars(Old[1])[0];
+    if ((Step[0]==1) && (Step[1]==0)) {
+      return [x*dx+A,1,Comm];
+    }else if ((Step[0]==-1) && (Step[1]==0)) {
+      return [-x*dx+x+A-C+1,A*(A-C+1),Comm];
+    }else if ((Step[0]==0) && (Step[1]==1)) {
+      return [x*dx+C-1,1,Comm];
+    }else if ((Step[0]==0) && (Step[1]==-1)) {
+      return [x*dx-1,A-C+1,Comm];
+    }else debug("not implemented");
+  }else if (length(vars(Old))==1) {
+    if (vars(Old[0])==[]) {
+      C=vars(Old[1])[0];
+      if (Step[1]==1) {
+	return [x*dx+C-1,1,Comm];
+      }else if (Step[1]==-1) {
+	return [x*dx-1,Old[0]-C+1,Comm];
+      }else debug("not implemented");
+    }else {
+      C=vars(Old[1])[0];
+      if (Step[1]==1) {
+	return [(C+1)*dx,1,Comm];
+      }else if (Step[1]==-1) {
+	return [x*dx-x+(C+1),(C+1)*C,Comm];
+      }else debug("not implemented");
+    }
+  }else debug("not implemented");
+}
+/*
+c1f1_contiguity([a,c],[a+1,c]);
+c1f1_contiguity([a+1,c],[a,c]);
+c1f1_contiguity([a,c],[a,c+1]);
+c1f1_contiguity([a,c+1],[a,c]);
+c1f1_contiguity([0,c],[0,c+1]);
+c1f1_contiguity([0,c+1],[0,c]);
+c1f1_contiguity([c,c+1],[c+1,c+2]);
+c1f1_contiguity([c+1,c+2],[c,c+1]);
+*/
+
+/* 2025.07.25 see goodnotes. 
+   Bf:   linear polynomial in V.
+   Para: parametrization by V.
+
+   Para 空間での Bf の表現を戻す. 符号は反転する可能性あり. 
+*/
+def linear_poly_coefficients_for_Sage(Bf,V,Para) {
+  printf("Calling linear_poly_coefficients_for_Sage(Bf=%a,V=%a,Para=%Para)\n",Bf,V,Para);
+  N=length(Para);
+  VP=base_var_list(y,1,N);
+  F=[];
+  for (I=0; I<N; I++) {
+    if (length(vars(Para[I]))!=0) { 
+      F=cons(VP[I]-Para[I],F);
+    }
+  }
+  G=nd_gr(F,append(V,VP),0,2);
+  printf("G=%a\n",G);
+  G2=[];
+  for (I=0; I<length(G); I++) {
+    if (length(base_intersection(vars(G[I]),V))!=0) {
+      G2=cons(G[I],G2);
+    }
+  }
+  F2=cons(Bf,G2);
+  G3=nd_gr(F2,append(V,VP),0,2);
+  if (length(base_intersection(vars(G3[0]),V)) != 0) error("not found.");
+  printf("G3=%a\n",G3);
+  return poly_coefficients_of_monomial_list(G3[0],append(VP,[1]));
+}
+/*
+linear_poly_coefficients_for_Sage(-b+bp,[a,b,bp,c],[a,-b+bp,b,bp+1]);
+linear_poly_coefficients_for_Sage(-b+bp+10,[a,b,bp,c],[a,-b+bp,b,bp+1]);
+linear_poly_coefficients_for_Sage(-b+bp,[a,b,bp,c],[a,c,b,bp]);
+linear_poly_coefficients_for_Sage(b-1,[a,b,bp,c],[a,b,a,2,a]);
+*/
+
+end;;
+

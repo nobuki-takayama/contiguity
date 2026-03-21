@@ -122,6 +122,10 @@ f = representative(BT_init, S_init, gauss_contiguity, vars=vars_list)
 
 # 結果は f に階層的に保存される
 
+# 5. contiguity を一つ求めたい場合の例.
+ horn_contiguity_by_GKZ([a1,a2,a3],[a1+1,a2+1,a3+1],R,dic)
+ horn_contiguity_by_GKZ([a1,a1,-1],[a1+1,a1+1,-1],R,dic)  
+
 ```
 
 ---
