@@ -1,0 +1,1081 @@
+/*
+ * 2026.3.26 F2-contiguity.rr の一部を取り出したもの．
+ * メインの関数は 
+ * find_cont_auto(Param1, Param2) と fidn_cont_recursive(Param1, Param2)
+ */
+import("names.rr")$
+Xm_noX=1$
+// dp_gr_print(1)$
+import("yang.rr")$
+function q00(x,y)$
+function q10(x,y)$
+function q01(x,y)$
+function q02(x,y)$
+function q11(x,y)$
+
+extern NT_1$
+extern NT_2$
+extern NT_sol$
+
+/*************************/
+/* from uv-cond.rr       */
+/*************************/
+extern NT_UL$
+extern NT_VL$
+extern NT_Param$
+
+/* u, v 変数のリスト */
+/* NT_UL, NT_VL は多くとっても問題ない */
+NT_UL=[u001,u002,u003,u004]$
+NT_VL=[v001,v002,v003,v004]$
+/* パラメータのリスト */
+NT_Param=[a,b,bb,c,cc]$
+
+/*
+F の因子について, 変数 NT_Param を含まないものを取り出し Type をひく. 
+それらを要素とするリストを返す.
+e.g. 
+[2769] F;
+((u001-u002)*a+(-u001+u002)*b)*x+(-u001+u002)*a+(u001-u002)*b
+[2770] fctr(F);
+[[1,1],[u001-u002,1],[a-b,1],[x-1,1]]
+[2771] get_uv_factors(F, 0);
+[x-1,u001-u002]
+[2772] get_uv_factors(F, 1);
+[x-2,u001-u002-1]
+*/
+def get_uv_factors(F,Type) {
+  L=fctr(F);
+  Ans=[];
+  for (I=0; I<length(L); I++) {
+    E=L[I][0];
+    if (vars(E) == []) continue;
+    if (base_set_intersection(NT_Param,vars(E)) == []) {
+      Ans=cons(E-Type,Ans);
+    }
+  }
+  return Ans;
+}
+
+def get_uv_0factors(F) {
+  return get_uv_factors(F,0);
+}
+
+def get_uv_1factors(F) {
+  return get_uv_factors(F,1);
+}
+
+/*
+F は 2 変数の分散表現多項式.
+<<0,0>> (定数項) の係数 = 1 となる関係式を返す. 
+定数項以外の係数 = 0 となる関係式を返す. 
+e.g.
+[2794] T0;
+(((u001-u002)*a+(-u001+u002)*b)*x+(-u001+u002)*a+(u001-u002)*b)*<<1,0>>+((u001-v002)*x+(-u002+v001)*b+(u002-v001)*bb)*<<0,0>>
+
+[2817] fctr((((u001-u002)*a+(-u001+u002)*b)*x+(-u001+u002)*a+(u001-u002)*b));
+[[1,1],[u001-u002,1],[a-b,1],[x-1,1]]
+[2819] fctr(+((u001-v002)*x+(-u002+v001)*b+(u002-v001)*bb));
+[[1,1],[(u001-v002)*x+(-u002+v001)*b+(u002-v001)*bb,1]]
+
+[2795] build_eq(T0);
+[u002-v001-1,u001-v002,u001-u002,u001-u002]
+*/
+def build_eq(F) {
+  Clist=[];
+  while (F != 0) {
+    C=dp_hc(F); Exp=dp_ht(F);
+    C=dp_ptod(C,[x,y]);
+    while (C != 0) {
+      if ((dp_ht(C) != <<0,0>>) || (Exp != <<0,0>>)) {
+	Clist = append(get_uv_0factors(dp_hc(C)),Clist);
+	// print([dp_ht(C), Clist]);
+      }else{
+	Clist = append(get_uv_1factors(dp_hc(C)),Clist);
+	// print([dp_ht(C), Clist]);
+      }
+      C = dp_rest(C);
+    }
+    F = dp_rest(F);
+  }
+  return Clist;
+}
+
+//T0=(u001-u002)*(x-1)*(a-b)*<<1,0>>+(u001-v002)*x+(bb-b)*(u002-v001)*<<0,0>>;
+//build_eq(T0);
+
+/*
+  F にあまりを入れる.
+e.g. 
+[2820] get_uv_rules(T0);
+Eq:
+[u002-v001-1,u001-v002,u001-u002,u001-u002]
+1.nd_gb done.
+...
+Ans of poly_solve_linear = [[u002,u001],[v001,u001-1],[v002,u001]]
+[[[u002,u001],[v001,u001-1],[v002,u001]],[[u001,0],[u003,0],[u004,0],[v003,0],[v004,0]]]
+*/
+def get_uv_rules(F) {
+  UVList=append(NT_UL,NT_VL);
+  Eq=build_eq(F);
+  // print("Eq:"); print(Eq);
+  S=poly_solve_linear(Eq,UVList);
+  // printf("Ans of poly_solve_linear = %a\n",S);
+  V=[];
+  for (I=0; I<length(S); I++) {
+    V=cons(S[I][0],V);
+  }
+  Z = base_set_minus(UVList,V);
+  Rule2=assoc(Z,vtol(newvect(length(Z))));
+  return [S,Rule2];
+}
+
+/*
+TR=get_uv_rules(T0)$
+T0_1=base_replace(T0,TR[1])$
+T0_2=base_replace(T0_1,TR[0])$
+T0_3=base_replace(T0_2,TR[1])$
+*/
+
+/* 
+u, v ありで H B = 0 mod I となるように u, v を定める. 
+1. H B mod I を計算し R とする. 
+2. get_uv_rules(R) で u, v の Rule を生成. 
+3. H, B に Rule を適用し, 昇降作用素を得る. 
+*/
+
+/***************************************************************/
+
+/* VL[0] = x, VL[1] = dx     */
+/* e.g. gauss(a,b,c,[x,dx]); */
+def gauss(A, B, C, VL)
+{
+	X = VL[0];
+	DX = VL[1];
+	return X*(1-X)*DX^2+(C-(A+B+1)*X)*DX-A*B;
+}
+
+//  mt_mm/rest2.r, f2pq();
+//  import("mt_mm.rr"); map(dp_dtop,mt_mm.f2pq(2,1),[x,y,dx,dy]);
+def appellF2(Param) {
+  F=[(-x^2+x)*dx^2+(-y*x*dy+(-a_00-b_02-1)*x+c_01)*dx-b_02*y*dy-b_02*a_00,
+     (-y*x*dy-b_12*x)*dx+(-y^2+y)*dy^2+((-a_00-b_12-1)*y+c_11)*dy-b_12*a_00];
+  Rule=assoc([a_00,b_02,b_12,c_01,c_11],Param);
+  return [base_replace(F,Rule),[x,y]];
+}
+
+def dmult2(F,G){
+  N=deg(nm(F),dx);
+  M=deg(nm(F),dy);
+  A=0;
+  for(K=0;K<=N;K++){
+    for (J=0; J<=M; J++) {
+      A=A+(1/(fac(K)*fac(J)))*diff2(diff2(F,dx,K),dy,J)*diff2(diff2(G,x,K),y,J);
+    }
+  }
+  return red(A);
+}
+
+def diff2(F,G,K){
+  for(I=0;I<K;I++){
+    F=diff(F,G);
+  }
+  return F;
+}
+
+def diff2xy(F,II,JJ){
+  F=diff2(F,x,II);
+  F=diff2(F,y,JJ);
+  return F;
+}
+
+def test1() {
+  A=x*y^2*dx^2+(x-y-1)^2*dx*dy+(x+y)^3*dy;
+  B=A+(x-y-2)^3*dy^2+(x-y)^3;
+  F=poly_dmul(A,B,[x,y]);
+  F2=dmult2(A,B);
+  return F-F2;
+}
+//test1();
+
+def test2() {
+  Q=q00(x,y)+q10(x,y)*dx+q01(x,y)*dy;
+  return dmult2(dx,Q);
+}
+//test2();
+
+def append_n(L) {
+  Ans=[];
+  for (I=0; I<length(L); I++) {
+    Ans=append(Ans,L[I]);
+  }
+  return Ans;
+}
+
+/*************************************************************************
+func_v_rule の出力
+$ ./a q00 1
+[ [[q00(x,y),q00],[q00{1,0}(x,y),q00_1_0],[q00{0,1}(x,y),q00_0_1],[dummy_func,dummy_v]], 
+  [[q00,q00(x,y)],[q00_1_0,q00{1,0}(x,y)],[q00_0_1,q00{0,1}(x,y)],[dummy_func,dummy_v]], 
+  [q00,q00_1_0,q00_0_1,dummy_v], 
+  [[q00,FFF],[q00_1_0,diff2xy(FFF,1,0)],[q00_0_1,diff2xy(FFF,0,1)],[dummy_func,dummy_v]]];
+
+$ ./a q00 2
+[ [[q00(x,y),q00],[q00{1,0}(x,y),q00_1_0],[q00{0,1}(x,y),q00_0_1],[q00{2,0}(x,y),q00_2_0],[q00{1,1}(x,y),q00_1_1],[q00{0,2}(x,y),q00_0_2],[dummy_func,dummy_v]], 
+  [[q00,q00(x,y)],[q00_1_0,q00{1,0}(x,y)],[q00_0_1,q00{0,1}(x,y)],[q00_2_0,q00{2,0}(x,y)],[q00_1_1,q00{1,1}(x,y)],[q00_0_2,q00{0,2}(x,y)],[dummy_func,dummy_v]], 
+  [q00,q00_1_0,q00_0_1,q00_2_0,q00_1_1,q00_0_2,dummy_v], 
+  [[q00,FFF],[q00_1_0,diff2xy(FFF,1,0)],[q00_0_1,diff2xy(FFF,0,1)],[q00_2_0,diff2xy(FFF,2,0)],[q00_1_1,diff2xy(FFF,1,1)],[q00_0_2,diff2xy(FFF,0,2)],[dummy_func,dummy_v]]];
+*************************************************************************/
+
+/* 2 変数関数を表す変数 q00{1,2}(x,y) について, 
+   関数名 q00, 階数 [1,2], 変換後の変数 q00_1_2 を返す */
+def func_d2(Var)
+{
+	Str = rtostr(Var);
+	LB = str_chr(Str, 0, "{");
+	RB = str_chr(Str, 0, "}");
+	LBB = str_chr(Str, 0, "(");
+	RBB = str_chr(Str, 0, ")");
+	if (LB == -1) {
+		/* q00(x,y) の場合 (微分の階数が 0 の場合)*/
+		Name = sub_str(Str, 0, LBB - 1); 	
+		return [Name, [0,0], strtov(Name)];
+	} else {
+		Name = sub_str(Str, 0, LB - 1);
+		Der = "[" + sub_str(Str, LB+1, RB-1) + "]";	
+		Der = eval_str(Der);
+		NVar = strtov(sprintf("%a_%a_%a", Name, Der[0], Der[1]));
+		return [Name, Der, NVar];
+	}
+}
+
+def test_func_d2()
+{
+	function f00(x,y);
+	print(func_d2(f00(x,y)));
+	print(func_d2(diff(f00(x,y), x)));
+	print(func_d2(diff(f00(x,y), y)));
+	print(func_d2(diff2xy(f00(x,y), 2,3)));
+}
+
+/* compatible with func_v_rule2 */
+def my_func_v_rule2(Sym, Deg, FFF)
+{
+	Rule1 = [];
+	Rule2 = [];
+	NVL = [];
+	Rule3 = [];
+	for (K = 0; K <= Deg; K++) {
+		for (I = K; I >= 0; I--) {
+			J = K - I;
+			T = diff2xy(Sym, I, J);
+			L = func_d2(T);
+			// print([I, J, T, L]);
+			NewVar = L[2];
+			Ord = L[1];
+			Rule1 = cons([T, NewVar], Rule1);
+			Rule2 = cons([NewVar, T], Rule2);
+			NVL = cons(NewVar, NVL);
+			Rule3 = cons([NewVar, diff2xy(FFF, Ord[0], Ord[1])], Rule3);
+		}
+	}
+	return [reverse(Rule1), reverse(Rule2), reverse(NVL), reverse(Rule3)];
+}
+
+def test_my_func_v_rule2()
+{
+	return my_func_v_rule2(q00(x,y), 2, x*y);
+}
+
+def appell_f1()
+{
+	//P1 = dmult2(x*dx, x*dx+y*dy+c-1) - x * dmult2(x*dx+y*dy+a, x*dx+b);
+	//P2 = dmult2(y*dy, x*dx+y*dy+c-1) - y * dmult2(x*dx+y*dy+a, y*dy+bb);
+	///* for holonomicity */
+	//P3 = x*y*((x-y)*dx*dy - bb*dx + b*dy);
+
+	P1 = dmult2(dx, x*dx+y*dy+c-1) - dmult2(x*dx+y*dy+a, x*dx+b);
+	P2 = dmult2(dy, x*dx+y*dy+c-1) - dmult2(x*dx+y*dy+a, y*dy+bb);
+	/* for holonomicity */
+	P3 = (x-y)*dx*dy - bb*dx + b*dy;
+	return [P1, P2, P3];
+}
+
+def appell_f2()
+{
+	P1 = dmult2(dx, x*dx+c-1) - dmult2(x*dx+y*dy+a, x*dx+b);	
+	P2 = dmult2(dy, y*dy+cc-1) - dmult2(x*dx+y*dy+a, y*dy+bb);	
+	if (type(getopt(param)) != -1) {
+		P = [a,b,bb,c,cc];
+		Param = getopt(param);
+		Rule = assoc(P, Param);
+		P1 = base_replace(P1, Rule);
+		P2 = base_replace(P2, Rule);
+	}
+	return [P1, P2];
+}
+
+def my_base_ith(L, I)
+{
+	return L[I];
+}
+
+/* D/I(Param1) \cong D/I(Param2) となる上昇作用素, 下降作用素 */
+/* 同型となるときのパラメータの条件を計算 */
+def cont_op(Param1, Param2)
+{
+	U = getopt(u);
+	T = contiguity2(Param1, Param2);
+	P = to_op(T[0]);
+	P = red(P);
+	PNM = nm(P);
+	PDN = dn(P);
+	if (type(U) != -1) {
+		/* option u = [[u***, Number],...] で u に値を代入 */
+		PNM = base_replace(PNM, U);	
+		PDN = base_replace(PDN, U);	
+	}
+	return [PNM, PDN];
+}
+
+def cont_op_(Param1, Param2)
+{
+	U = getopt(u);
+	T = contiguity2_(Param1, Param2);
+	P = to_op(T[0]);
+	P = red(P);
+	PNM = nm(P);
+	PDN = dn(P);
+	if (type(U) != -1) {
+		/* option u = [[u***, Number],...] で u に値を代入 */
+		PNM = base_replace(PNM, U);	
+		PDN = base_replace(PDN, U);	
+	}
+	return [PNM, PDN];
+}
+
+def test_cont_op()
+{
+	/* Appell F2, c == cc の場合 */
+	Param1 = [a,b,bb,c+1,c+1];
+	Param2 = [a,b,bb,c,c];
+	U = [[u118,0],[u119,0],[u115,0],[u116,1]];
+	return cont_op(Param1, Param2|u=U);
+}
+
+def test_cont_op2()
+{
+	/* Appell F2, c == cc の場合 */
+	Param1 = [a,b,bb,c-1,c-1];
+	Param2 = [a,b,bb,c,c];
+	U = [[u118,0],[u119,0],[u026,0],[u115,1]];
+	return cont_op(Param1, Param2|u=U);
+}
+
+def coefs(P, VL)
+{
+	DP = dp_ptod(P, VL);
+	C = [];
+	M = [];
+	while (DP != 0) {
+		C = cons(dp_hc(DP), C);
+		M = cons(dp_ht(DP), M);
+		DP = dp_rest(DP);
+	}
+	L = [reverse(C), reverse(M)];
+	return L;
+}
+
+def to_op(L)
+{
+	return L[0] + L[1]*dx + L[2]*dy + L[3]*dy^2 + L[4]*dx*dy;
+}
+
+/* Var1 = u001, Var2 = v ---> v001 */
+def change_var_name(Var1, Var2)
+{
+	S1 = rtostr(Var1);
+	S2 = rtostr(Var2) + sub_str(S1, 1, str_len(S1));	
+	return strtov(S2);
+}
+
+/*
+2 変数に限定
+e.g.
+Base = [1,dx,dy,dy^2,dx*dy]
+Deg = 3
+  Sol=[u001+u002*x+u003*y+u004*x^2+u005*x*y+u006*y^2
+       +u007*x^3+u008*x^2*y+u009*x*y^2+u0010*y^3,
+       u101+u102*x+u103*y+u104*x^2+u105*x*y+u106*y^2
+       +u107*x^3+u108*x^2*y+u109*x*y^2+u1010*y^3,
+       u011+u012*x+u013*y+u014*x^2+u015*x*y+u016*y^2
+       +u017*x^3+u018*x^2*y+u019*x*y^2+u0110*y^3,
+       u021+u022*x+u023*y+u024*x^2+u025*x*y+u026*y^2
+       +u027*x^3+u028*x^2*y+u029*x*y^2+u0210*y^3,
+       u111+u112*x+u113*y+u114*x^2+u115*x*y+u116*y^2
+       +u117*x^3+u118*x^2*y+u119*x*y^2+u1110*y^3
+      ];
+  Sol[0]+Sol[1]*dx+Sol[2]*dy+Sol[3]*dy^2+Sol[4]*dx*dy
+*/
+def gen_sol(Base, Deg)
+{
+	Sol = [];
+	while (Base != []) {
+		T = 0;
+		B = car(Base);
+		Count = 1;
+		for (K = 0; K <= Deg; K++) {
+			for (I = 0; I <= K; I++) {
+				J = K - I;
+				T += gen_u(B, Count) * x^J * y^I;
+				Count++;
+			}
+		}
+		Base = cdr(Base);
+		Sol = cons(T, Sol);
+	}
+	return reverse(Sol);
+}
+
+def test_gen_sol()
+{
+	return gen_sol([1,dx,dy,dy^2,dx*dy], 3);
+}
+
+/* gen_u(dx*dy^2, 5) ---> u125 */
+def gen_u(DX, Count)
+{
+	E1 = deg(DX, dx);
+	E2 = deg(DX, dy);
+	return strtov("u" + rtostr(E1) + rtostr(E2) + rtostr(Count));
+}
+
+ord(append([dx,dy], ord()))$
+/*************************************************************************/
+
+def func_v_rule(Sym,Deg) {
+  TmpFile="tmp_rule0.txt";
+  Com=sprintf("./func_v_rule %a %a >%a",Sym,Deg,TmpFile);
+//  print(Com);
+  shell(Com);
+  S=util_read_file_as_a_string(TmpFile);
+  return S;
+}
+
+//T=func_v_rule(q00,2);
+def func_v_rule2(Sym,Deg,FFF) {
+  R=eval_str(func_v_rule(Sym,Deg));
+  return R;
+}
+
+//Lplus=[a+1,b1,b2,c1,c2], L=[a,b1,b2,c1,c2]
+/*
+I2(Lplus) Q \in I2(L) となる Q の 1, dx, dy, dy^2, dx*dy の係数を返す
+*/
+def my_geneq(Lplus,L) {
+  if (type(getopt(sol))>0) {
+    Sol=getopt(sol);
+    Q00=Sol[0]; Q10=Sol[1]; Q01=Sol[2]; Q02=Sol[3]; Q11=Sol[4];
+  }else {
+    Sol=0;
+    Q00=a; Q10=x; Q01=y; Q02=0; Q11=0;
+  }
+  Rule0=[[x1,x],[x2,y],[dx1,dx],[dx2,dy]];
+  F1plus=base_replace(appellF2(Lplus)[0],Rule0);
+  F1=base_replace(appellF2(L)[0],Rule0);
+  Q=q00(x,y)+q10(x,y)*dx+q01(x,y)*dy+q02(x,y)*dy^2+q11(x,y)*dx*dy;
+  Ops=map(dmult2,F1plus,Q);
+  R1=my_func_v_rule2(q00(x,y),2,Q00); R2=my_func_v_rule2(q10(x,y),2,Q10);
+  R3=my_func_v_rule2(q01(x,y),2,Q01); R4=my_func_v_rule2(q02(x,y),2,Q02);
+  R5=my_func_v_rule2(q11(x,y),2,Q11); 
+  /*
+  R1=func_v_rule2(q00,2,Q00); R2=func_v_rule2(q10,2,Q10);
+  R3=func_v_rule2(q01,2,Q01); R4=func_v_rule2(q02,2,Q02);
+  R5=func_v_rule2(q11,2,Q11); 
+  */
+  Rule=append_n([R1[0],R2[0],R3[0],R4[0],R5[0]]);
+  Ops2=base_replace(Ops,Rule);  // I(a+1)*Q
+  yang.define_ring(["partial",[x,y]]);
+  F=map(dp_ptod,F1,[dx,dy]);
+  G=yang.buchberger(F);
+  // print(yang.stdmon(G)); // [dy^2,dx,dy,1]
+  Ops3=map(dp_ptod,Ops2,[dx,dy]);
+  Ops4=map(yang.reduction,Ops3,G);
+  Ops4=map(my_base_ith,Ops4,0);
+  /*
+  Ops4=map(base_ith,Ops4,0);
+  */
+
+  Check=0; 
+  // 下記の generic な場合の解は x*dx+y*dy+a. Check=1でこれが満たしているか調べる.
+  if (Check || Sol){
+    RuleSol=append_n([R1[3],R2[3],R3[3],R4[3],R5[3]]);
+    NT_1=RuleSol;
+    Ops4=base_replace(Ops4,RuleSol);
+    if (Check) printf("Check=%a\n",Ops4);
+  }
+
+  Rule_to_op=append_n([R1[1],R2[1],R3[1],R4[1],R5[1]]);
+  // collect all coefs
+  C=[];
+  for (I=0; I<length(Ops4); I++) {
+    F=Ops4[I];
+    while (F!=0) {
+      C=cons(dp_hc(F),C);
+      F=dp_rest(F);
+    }
+  }
+  return [C, base_replace(C,Rule_to_op)];
+  /* [変数形式, 関数形式] */
+}
+//T=geneq([a+1,b1,b2,c1,c2],[a,b1,b2,c1,c2]);
+
+//Lplus=[a+1,b1,b2,c1,c2], L=[a,b1,b2,c1,c2]
+def geneq(Lplus,L) {
+  if (type(getopt(sol))>0) {
+    Sol=getopt(sol);
+    Q00=Sol[0]; Q10=Sol[1]; Q01=Sol[2]; Q02=Sol[3]; Q11=Sol[4];
+  }else {
+    Sol=0;
+    Q00=a; Q10=x; Q01=y; Q02=0; Q11=0;
+  }
+  Rule0=[[x1,x],[x2,y],[dx1,dx],[dx2,dy]];
+  F1plus=base_replace(appellF2(Lplus)[0],Rule0);
+  F1=base_replace(appellF2(L)[0],Rule0);
+  Q=q00(x,y)+q10(x,y)*dx+q01(x,y)*dy+q02(x,y)*dy^2+q11(x,y)*dx*dy;
+  Ops=map(dmult2,F1plus,Q);
+  R1=func_v_rule2(q00,2,Q00); R2=func_v_rule2(q10,2,Q10);
+  R3=func_v_rule2(q01,2,Q01); R4=func_v_rule2(q02,2,Q02);
+  R5=func_v_rule2(q11,2,Q11); 
+  Rule=append_n([R1[0],R2[0],R3[0],R4[0],R5[0]]);
+  Ops2=base_replace(Ops,Rule);  // I(a+1)*Q
+  yang.define_ring(["partial",[x,y]]);
+  F=map(dp_ptod,F1,[dx,dy]);
+  G=yang.buchberger(F);
+  print(yang.stdmon(G)); // [dy^2,dx,dy,1]
+  Ops3=map(dp_ptod,Ops2,[dx,dy]);
+  Ops4=map(yang.reduction,Ops3,G);
+  Ops4=map(base_ith,Ops4,0);
+
+  Check=0; 
+  // 下記の generic な場合の解は x*dx+y*dy+a. Check=1でこれが満たしているか調べる.
+  if (Check || Sol){
+    RuleSol=append_n([R1[3],R2[3],R3[3],R4[3],R5[3]]);
+    NT_1=RuleSol;
+    Ops4=base_replace(Ops4,RuleSol);
+    if (Check) printf("Check=%a\n",Ops4);
+  }
+
+  Rule_to_op=append_n([R1[1],R2[1],R3[1],R4[1],R5[1]]);
+  // collect all coefs
+  C=[];
+  for (I=0; I<length(Ops4); I++) {
+    F=Ops4[I];
+    while (F!=0) {
+      C=cons(dp_hc(F),C);
+      F=dp_rest(F);
+    }
+  }
+  return [C, base_replace(C,Rule_to_op)];
+  /* [変数形式, 関数形式] */
+}
+//T=geneq([a+1,b1,b2,c1,c2],[a,b1,b2,c1,c2]);
+
+//date:2023-03-03
+//T=geneq([a+1,b1,b2,c1,c2],[a,b1,b2,c1,c2] | sol=[a,x,y,0]);
+
+
+def taka_poly_coefficient_list(F,V) {
+  if (type(F) > 3) return map(taka_poly_coefficient_list,F,V);
+  if (type(F)==3) {
+    Dn=dn(F);
+    if (length(base_intersection(vars(Dn),V))>0) error("rational input");
+    F=nm(F);
+  }else Dn=1;
+  G=dp_ptod(F,V);
+  Clist=[]; MonList=[];
+  while (G!=0) {
+    Clist=cons(red(dp_hc(G)/Dn),Clist);
+    MonList=cons(dp_dtop(dp_ht(G),V),MonList);
+    G=dp_rest(G);
+  }
+  return [Clist,MonList];
+}
+
+def taka_poly_coefficient_list0(F,V) {
+  if (type(F)>3) return map(taka_poly_coefficient_list0,F,V);
+  return taka_poly_coefficient_list(F,V)[0];
+}
+//taka_poly_coefficient_list((x+y+1)^2,[x,y]);
+//T=taka_poly_coefficient_list((x-y-1/a)^3,[x,y]); matrix_inner_product(T[0],T[1])-(x-y-1/a)^3;
+
+
+/*
+  return :
+  I2(P1) Q \subset I2(P2) となる Q を返す
+  Q は
+  Sol[0]+Sol[1]*dx+Sol[2]*dy+Sol[3]*dy^2+Sol[4]*dx*dy
+  の形
+*/
+def contiguity2(P1,P2) {
+  Sol=[u001+u002*x+u003*y+u004*x^2+u005*x*y+u006*y^2
+       +u007*x^3+u008*x^2*y+u009*x*y^2+u0010*y^3,
+       u101+u102*x+u103*y+u104*x^2+u105*x*y+u106*y^2
+       +u107*x^3+u108*x^2*y+u109*x*y^2+u1010*y^3,
+       u011+u012*x+u013*y+u014*x^2+u015*x*y+u016*y^2
+       +u017*x^3+u018*x^2*y+u019*x*y^2+u0110*y^3,
+       u021+u022*x+u023*y+u024*x^2+u025*x*y+u026*y^2
+       +u027*x^3+u028*x^2*y+u029*x*y^2+u0210*y^3,
+       u111+u112*x+u113*y+u114*x^2+u115*x*y+u116*y^2
+       +u117*x^3+u118*x^2*y+u119*x*y^2+u1110*y^3
+      ];
+  NT_sol=Sol;
+  U=reverse(base_set_minus(vars(Sol),[x,y]));
+  print(U);
+  T=my_geneq(P1,P2 | sol=Sol);
+  /*
+  T=geneq(P1,P2 | sol=Sol);
+  */
+  NT_1=T;
+  T1=base_flatten(taka_poly_coefficient_list0(T,[x,y]))$
+  NT_2=T1;
+  Rule=poly_solve_linear(T1,U);
+  if (Rule == []) error("No solution.");
+  return [base_replace(Sol,Rule),Rule];
+}
+
+//T=contiguity2([a+1,b1,b2,c1,c2],[a,b1,b2,c1,c2]); 
+//T=contiguity2([1/3-1,1/5,1/7,1/11,1/13],[1/3,1/5,1/7,1/11,1/13]); 
+//T=contiguity2([a-1,b1,b2,c1,c2],[a,b1,b2,c1,c2]); 
+
+//T=contiguity2([1/3,1/5-1,1/7,1/11,1/13],[1/3,1/5,1/7,1/11,1/13]); 
+//T=contiguity2([1/3,1/5,1/7,1/11+1,1/13],[1/3,1/5,1/7,1/11,1/13]); print("---")$ base_replace(T[0],[[u118,0],[u119,0],[u116,0],[u115,1]]);
+
+/*
+T=contiguity2([a,b1,b2,c1+1,c2],[a,b1,b2,c1,c2]); print("---")$ T0=base_replace(T[0],[[u118,0],[u119,0],[u116,0],[u115,1]]);
+printf("i.e., (%a)*1+(%a)*dx+(%a)*dy+(%a)*dy^2+(%a)*dx*dy\n",T0[0],T0[1],T0[2],T0[3],T0[4])$
+*/
+
+def contiguity2_(P1,P2) {
+  Sol=[u001+u002*x+u003*y+u004*x^2+u005*x*y+u006*y^2
+       +u007*x^3+u008*x^2*y+u009*x*y^2+u0010*y^3
+       +u0011*x^4+u0012*x^3*y+u0013*x^2*y^2+u0014*x*y^3+u0015*y^4,
+       u101+u102*x+u103*y+u104*x^2+u105*x*y+u106*y^2
+       +u107*x^3+u108*x^2*y+u109*x*y^2+u1010*y^3
+       +u1011*x^4+u1012*x^3*y+u1013*x^2*y^2+u1014*x*y^3+u1015*y^4,
+       u011+u012*x+u013*y+u014*x^2+u015*x*y+u016*y^2
+       +u017*x^3+u018*x^2*y+u019*x*y^2+u0110*y^3 
+       +u0111*x^4+u0112*x^3*y+u0113*x^2*y^2+u0114*x*y^3+u0115*y^4,
+       u021+u022*x+u023*y+u024*x^2+u025*x*y+u026*y^2
+       +u027*x^3+u028*x^2*y+u029*x*y^2+u0210*y^3 
+       +u0211*x^4+u0212*x^3*y+u0213*x^2*y^2+u0214*x*y^3+u0215*y^4,
+       u111+u112*x+u113*y+u114*x^2+u115*x*y+u116*y^2
+       +u117*x^3+u118*x^2*y+u119*x*y^2+u1110*y^3
+       +u1111*x^4+u1112*x^3*y+u1113*x^2*y^2+u1114*x*y^3+u1115*y^4
+      ];
+  NT_sol=Sol;
+  U=reverse(base_set_minus(vars(Sol),[x,y]));
+  print(U);
+  T=my_geneq(P1,P2 | sol=Sol);
+  /*
+  T=geneq(P1,P2 | sol=Sol);
+  */
+  NT_1=T;
+  T1=base_flatten(taka_poly_coefficient_list0(T,[x,y]))$
+  NT_2=T1;
+  Rule=poly_solve_linear(T1,U);
+  if (Rule == []) error("No solution.");
+  return [base_replace(Sol,Rule),Rule];
+}
+
+def contiguity3(P1,P2) {
+	if (type(getopt(base)) == -1) {
+  		Base = [1,dx,dy,dy^2,dx*dy];
+	} else {
+		Base = getopt(base);
+  	}
+	if (type(getopt(deg)) == -1) {
+  		Deg = 3;	
+	} else {
+		Deg = getopt(deg);
+  	}
+  	Sol = gen_sol(Base, Deg);
+
+  NT_sol=Sol;
+  U=reverse(base_set_minus(vars(Sol),[x,y]));
+  // print(U);
+  T=my_geneq(P1,P2 | sol=Sol);
+  /*
+  T=geneq(P1,P2 | sol=Sol);
+  */
+  NT_1=T;
+  T1=base_flatten(taka_poly_coefficient_list0(T,[x,y]))$
+  NT_2=T1;
+  // print("poly_solve_linear"); print("T1:"); print(T1); print("U:"); print(U);
+  Rule=poly_solve_linear(T1,U);
+  // print("Rule:"); print(Rule);
+  if (Rule == []) error("No solution.");
+  return [base_replace(Sol,Rule),Rule,U];
+}
+
+
+/* 
+I2(ParamPlus) H(Param) \subset I2(Param)
+I2(Param) B(ParamPlus) \subset I2(ParamPlus)
+となる H(Param), B(ParamPlus) を返す
+B(ParamPlus) H(Param) mod I2(Param) も返す 
+e.g. 
+find_cont([a,b,bb,c+1,cc], [a,b,bb,c,cc])
+--> c についての上昇作用素 H(c), 
+    c についての下降作用素 B(c+1) 
+    B(c+1) H(c) mod I2(c) の結果を返す
+*/
+def find_cont(ParamPlus, Param)
+{
+	if (type(getopt(base)) == -1) {
+  		Base = [1,dx,dy,dy^2,dx*dy];
+	} else {
+		Base = getopt(base);
+  	}
+	if (type(getopt(deg)) == -1) {
+  		Deg = 2;	
+	} else {
+		Deg = getopt(deg);
+  	}
+	//print("Base:", 0); print(Base);
+	//print("Deg:", 0); print(Deg);
+
+  	Sol = gen_sol(Base, Deg);
+	L1 = contiguity3(ParamPlus, Param|base=Base, deg=Deg);
+	VL_U = L1[2];
+	VL_V = map(change_var_name, VL_U, v);
+	RuleUV = assoc(VL_U, VL_V);
+	L2 = contiguity3(Param, ParamPlus|base=Base, deg=Deg);
+	//print(L1);
+	//print(L2);
+
+	H = red(to_op(L1[0]));
+	BP = red(to_op(L2[0]));
+	BP = base_replace(BP, RuleUV);
+	NH = nm(H);
+	NBP = nm(BP); 
+	print("H:", 0); print(H);
+	print("BP:", 0); print(BP);
+
+	yang.define_ring(["partial", [x,y]]);
+	Id = appell_f2(|param=Param); 
+	IdP = appell_f2(|param=ParamPlus); 
+	Id = map(dp_ptod, Id, [dx,dy]);
+	IdP = map(dp_ptod, IdP, [dx,dy]);
+	// print("Id:"); print(Id);
+	G = yang.buchberger(Id);
+	// print("IdP:"); print(IdP);
+	GP = yang.buchberger(IdP);
+
+	// print("B(ParamPlus)H(Param) mod I2(Param)");
+	BH = dmult2(NBP, NH);
+	BH = dp_ptod(BH, [dx,dy]);
+	R = yang.reduction(BH, G);
+	// print("R:", 0); print(R);
+	// print("fctr(R[0]):"); print(fctr(dp_hc(R[0])));
+
+	// print("H(Param)B(ParamPlus) mod I2(ParamPlus)");
+	HB = dmult2(NH, NBP);
+	HB = dp_ptod(HB, [dx,dy]);
+	RR = yang.reduction(HB, GP);
+	// print("RR:", 0); print(RR);
+	// print("fctr(RR[0]):"); print(fctr(dp_hc(RR[0])));
+
+	/* uv_cond.rr の extern 変数 */
+	NT_UL = VL_U;
+	NT_VL = VL_V;
+	Rules = get_uv_rules(R[0]);
+	HOP = base_replace(H, Rules[0]);
+	//HOP = base_replace(HOP, Rules[1]);
+	Rules2 = get_uv_rules(RR[0]);
+	BPOP = base_replace(BP, Rules2[0]);
+	//BPOP = base_replace(BPOP, Rules2[1]);
+	return [HOP, BPOP, dp_hc(R[0])];
+}
+
+/*******************************************************
+find_cont_recursive  
+ *******************************************************/
+
+RDeg = 3$  /* find_cont に渡す option  */
+
+/* 未定係数の u***, v*** に 1 を代入して u***, v*** を消す */
+def find_cont_auto(ParamPlus, Param)
+{
+	extern RDeg;
+	T = find_cont(ParamPlus, Param|deg=RDeg);
+
+	H = T[0];
+	VL = vars(H);
+	UV = pick_uv_vars(VL);
+	Rule1 = l_compo(UV, l_const(length(UV), 1)); /* u***, v*** に 1 を代入するルール */
+	H = base_replace(H, Rule1);
+
+ 	B = T[1];
+	VL = vars(B);
+	UV = pick_uv_vars(VL);
+	Rule2 = l_compo(UV, l_const(length(UV), 1)); /* u***, v*** に 1 を代入するルール */
+	B = base_replace(B, Rule2);
+
+	Cond = T[2];
+
+	//VL = vars(Cond);
+	//UV = pick_uv_vars(VL);
+	//Rule = l_compo(UV, l_const(length(UV), 1)); /* u***, v*** に 1 を代入するルール */
+	//Cond = base_replace(Cond, Rule);
+
+	Rule = append(Rule1, Rule2);
+	Cond = base_replace(Cond, Rule);
+	if (Cond == 0) 
+		print("Cond = 0");
+	return [H, B, Cond];
+}
+
+def test_find_cont_auto()
+{
+	return find_cont_auto([a,b,bb,c+1,cc], [a,b,bb,c,cc]);
+}
+
+def test_find_cont_auto2()
+{
+	find_cont_auto([a,b,-1,c+1,cc],[a,b,-1,c,cc]);
+}
+
+def space(N)
+{
+	S = "";
+	for (I = 0; I < N; I++)
+		S += " ";
+	return S;
+}
+
+Depth = 0$ /* 表示用. 再帰の深さを保存 */
+
+/*
+find_cont_auto を再帰的に呼び出しては実行し, パラメータの変数を減らしていく 
+c+1, c の隣接関係式に限定.
+*/
+def find_cont_recursive(ParamPlus, Param)
+{
+	extern Depth;
+	Depth++;
+	print(space(6 * Depth), 0);
+	print("(" + rtostr(Depth) + ")find_cont_recursive(" + rtostr(ParamPlus) + "," + rtostr(Param) +") {");
+
+	ord([a,b,bb,cc,c]); /* 優先されて消されていくパラメータの順序 */	
+	L = find_cont_auto(ParamPlus, Param);
+	H = L[0];
+	B = L[1];
+	Cond = L[2];
+	Factors = fctr(Cond);
+	// print(space(6 * (Depth+1)), 0);
+	// print("Factors:", 0); print(Factors);
+	Factors = remove_uv_factors(Factors); // u***, v*** のみの因子を除く. 定数部分も除く 
+	print(space(6 * (Depth+1)), 0);
+	print("Factors:", 0); print(Factors);
+	print(space(6 * (Depth+1)), 0);
+	print("H=", 0); print(H, 0); print(";");
+	print(space(6 * (Depth+1)), 0);
+	print("B=", 0); print(B, 0); print(";");
+	for (I = 0; I < length(Factors); I++) {
+		T = Factors[I][0];
+
+		/* c のみの条件はスキップ */
+		if (vars(T) == [c])
+			continue;
+
+		Rule = [eq_to_rule(T)];
+		print(space(6 * (Depth+1)), 0);
+		print("Rule:", 0); print(Rule);
+		if (Rule == [[]])
+			continue;
+		Orig = base_replace(Param, Rule);
+
+		/* c+1, c の隣接関係式に限定 */
+		Plus = base_replace(Orig, [[c,c+1]]);
+
+		// print([Plus, Orig]);
+		find_cont_recursive(Plus, Orig);
+	}
+
+	print(space(6 * Depth), 0);
+	print("}"); print("");
+	Depth--;
+}
+
+def test_find_cont_recursive()
+{
+	return find_cont_recursive([a,b,bb,c+1,cc], [a,b,bb,c,cc]);
+}
+
+/* 1 次式 Eq = 0 から変数を消去する関係式を作成 */
+/* e.g. Eq = a + b + 1 ---> [a,-b-1]            */
+def eq_to_rule(Eq)
+{
+	if (!is_linear(Eq)) {
+		print("Eq is not linear.");
+		return [];
+	}
+	VL = vars(Eq);
+	V = VL[0];
+	C = coef(Eq, 1, V);
+	RHS = -(Eq - C*V)/C;
+	return [V, RHS];
+}
+
+def test_eq_to_rule()
+{
+	print(eq_to_rule(x-2*y-1));
+	print(eq_to_rule(3*x+2*y+1));
+	print(eq_to_rule(5*x+2*y+3*z-4));
+	print(eq_to_rule(5*x-4));
+	print(eq_to_rule(x^2+x+1));
+}
+
+/* 1 次式かどうか */
+def is_linear(Eq)
+{
+	VL = vars(Eq);
+	DP = dp_ptod(Eq, VL);
+
+	/* 定数 */
+	if (DP == 0) 
+		return 0;
+	if (VL == [])
+		return 0;
+
+	while (DP != 0) {
+		T = dp_etov(DP);
+		Deg = l_sum(T);
+		if (Deg > 1)
+			return 0;
+		DP = dp_rest(DP);
+	}
+	return 1;
+}
+
+def test_is_linear()
+{
+	print(is_linear(x+y+1));
+	print(is_linear(1));
+	print(is_linear(x^2+y^2+1));
+	print(is_linear(x*y+x+y+1));
+}
+
+/* リストの各要素の和 */
+def l_sum(L)
+{
+	S = 0;
+	for (I = 0; I < length(L); I++)
+		S += L[I];	
+	return S;
+}
+
+/* 変数リスト VL から u***, v*** を取り出し */
+def pick_uv_vars(VL)
+{
+	UV = [];
+	for (I = 0; I < length(VL); I++) {
+		FirstC = sub_str(rtostr(VL[I]), 0, 0);
+		if (FirstC == "u" || FirstC  == "v") 
+			UV = cons(VL[I], UV);
+	}
+	return UV;
+}
+
+def test_pick_uv_vars()
+{
+	L = [a,b,c,aa,bb,u113,v112,v013];
+	return pick_uv_vars(L);
+}
+
+/* L : fctr の結果                                                    */
+/* fctr の各要素で, u***, v*** だけからなるものを消去. 定数部分も消去 */
+/* e.g. [[-1,1],[u113,1],[bb+1,1],[b-c,1],[a-c,1],[a-cc-c+1,1]]       */
+/*      ---> [[bb+1,1],[b-c,1],[a-c,1],[a-cc-c+1,1]]                  */
+def remove_uv_factors(L)
+{
+	VL = vars(L);	
+	UV = pick_uv_vars(VL);
+	LL = [];
+	for (I = 0; I < length(L); I++) {
+		T = L[I][0];
+		if (is_subset(vars(T), UV)) {
+			/* T は u***, v*** だけからなる因子 */
+			/* 何もせず. */
+		} else {
+			LL = cons(L[I], LL);
+		}
+	}
+	return reverse(LL);
+}
+
+def test_remove_uv_factors()
+{
+	L = [[-1,1],[u113,1],[bb+1,1],[b-c,1],[a-c,1],[a-cc-c+1,1]];
+	return remove_uv_factors(L);
+}
+
+/* from util.rr */
+/* "E \in L" true or false ? */
+def is_element(E, L)
+{
+	Len = length(L);
+	for (I = 0; I < Len; I++) {
+		if (E == L[I])
+			return 1;
+	}
+	return 0;
+}
+
+/* "L \subset VL" true or false ? */
+def is_subset(L, VL)
+{
+	Len = length(L);
+	Vlen = length(VL);
+	for (I = 0; I < Len; I++) {
+		for (J = 0; J < Vlen; J++) {
+			if (L[I] == VL[J])
+				break;
+		}
+		if (J == Vlen)
+			return 0;
+	}
+	return 1;
+}
+
+
+/* 
+l_compo([x,y,z], [1,2,3]) --> [[x,1],[y,2],[z,3]]
+*/
+def l_compo(L1, L2)
+{
+	L = [];
+	N = length(L1);
+	if (length(L2) < length(L1)) 
+		N = length(L2);
+	for (I = 0; I < N; I++) 
+		L = cons([L1[I], L2[I]], L);
+	return reverse(L);	
+}
+
+def test_l_compo()
+{
+	return l_compo([x,y,z], [1,2,3]);
+}
+
+/* Const が N 個のリストを作成 */
+def l_const(N, Const)
+{
+	L = [];
+	for (I = 0; I < N; I++)
+		L = cons(Const, L);
+	return L;
+}
+
+end$
