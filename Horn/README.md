@@ -58,7 +58,7 @@ GKZ 超幾何系から制限アルゴリズムを用いて、Horn 系の contigu
 
 ### 例 (Appell $F_1$).
 ```C
-// parameter は [a,b,bp,c-1], a,b,$b'$ (bp), c は通常の Appell F1 のパラメータ
+// parameter は [a,b,bp,c-1], a,b,$b'$ (bp), c は通常の Appell F1 のパラメータ.
 [2143] import("2026-03-01-horn-by-gkz.rr");;
 [2701] A=[[1,0,0,0,1,1],
           [0,1,0,0,1,0],
