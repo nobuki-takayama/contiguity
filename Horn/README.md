@@ -34,6 +34,55 @@ GKZ 超幾何系から制限アルゴリズムを用いて、Horn 系の contigu
 
 ---
 
+### 例 (Gauss ${}_2F_1$).
+```C
+//start openxm asir,  A は Gauss 超幾何の A.  
+// F[4] が Gauss 2F1 の方程式. ここからparameter は [c-1,a,b] とわかる.
+// a についての contiguity を求める.  
+[2143] import("2026-03-01-horn-by-gkz.rr");;
+[2701] A=[[1,0,0,-1],[0,1,0,1],[0,0,1,1]];  
+[[1,0,0,-1],[0,1,0,1],[0,0,1,1]]
+[2702] F=set_A(A);
+[[[a1,b1],[a2,-b2],[a3,-b3]],[[dx1,x4*dx4+a1],[dx2,-x4*dx4-a2],[dx3,-x4*dx4-a3]],[x4],[dx1*dx4-dx2*dx3],[(-x4*dx4-a3)(-x4*dx4-a2) - dx4(x4*dx4+a1)],[(x4^2-x4)*dx4^2+((a2+a3+1)*x4-a1-1)*dx4+a3*a2],[1*(-x4*dx4-a3)*(-x4*dx4-a2) - 1*dx4*(x4*dx4+a1)]]
+[2703] L=horn_contiguity_from_a_shift([c-1,a,b],[c-1,a+1,b]);
+[-x4*dx4-a,1,[[c-1,a,b], -> ,[c-1,a+1,b]],[dx2,dx2,1,dx2],1]
+// L[0] が contiguity, L[1] が超幾何 b-function. 次に逆方向の contiguity を求める.
+[2704] L2=horn_contiguity_from_a_shift([c-1,a,b],[c-1,a-1,b]);
+[(x4^2-x4)*dx4+b*x4+a-c,-a^2+(c+1)*a-c,[[c-1,a,b], -> ,[c-1,a-1,b]],[-x2*x4*dx4-x1*x4*dx3+(a-c)*x2,-a^2+(c+1)*a-c,dx2,1],1]
+[2705] fctr(L2[1]);
+[[-1,1],[a-1,1],[a-c,1]]
+
+```
+
+---
+
+### 例 (Appell $F_1$).
+```C
+// parameter は [a,b,bp,c-1], a,b,$b'$ (bp), c は通常の Appell F1 のパラメータ
+[2143] import("2026-03-01-horn-by-gkz.rr");;
+[2701] A=[[1,0,0,0,1,1],
+          [0,1,0,0,1,0],
+          [0,0,1,0,0,1],
+          [0,0,0,1,-1,-1]];;
+[2703] F=set_A(A);
+[[[a1,-b1],[a2,-b2],[a3,-b3],[a4,b4]],[[dx1,-x6*dx6-x5*dx5-a1],[dx2,-x5*dx5-a2],[dx3,-x6*dx6-a3],[dx4,x6*dx6+x5*dx5+a4]],[x5,x6],[-dx2*dx6+dx3*dx5,dx4*dx6-dx1*dx3,dx4*dx5-dx1*dx2],[dx5(-x6*dx6-a3) - dx6(-x5*dx5-a2),(-x6*dx6-a3)(-x6*dx6-x5*dx5-a1) - dx6(x6*dx6+x5*dx5+a4),(-x5*dx5-a2)(-x6*dx6-x5*dx5-a1) - dx5(x6*dx6+x5*dx5+a4)],[((-x6+x5)*dx5+a2)*dx6-a3*dx5,(x6^2-x6)*dx6^2+((x5*x6-x5)*dx5+(a1+a3+1)*x6-a4-1)*dx6+a3*x5*dx5+a3*a1,((x5-1)*x6*dx5+a2*x6)*dx6+(x5^2-x5)*dx5^2+((a1+a2+1)*x5-a4-1)*dx5+a2*a1],[1*dx5*(-x6*dx6-a3) - 1*dx6*(-x5*dx5-a2),1*(-x6*dx6-a3)*(-x6*dx6-x5*dx5-a1) - 1*dx6*(x6*dx6+x5*dx5+a4),1*(-x5*dx5-a2)*(-x6*dx6-x5*dx5-a1) - 1*dx5*(x6*dx6+x5*dx5+a4)]]
+[2704] F[4];
+[dx5(-x6*dx6-a3) - dx6(-x5*dx5-a2),(-x6*dx6-a3)(-x6*dx6-x5*dx5-a1) - dx6(x6*dx6+x5*dx5+a4),(-x5*dx5-a2)(-x6*dx6-x5*dx5-a1) - dx5(x6*dx6+x5*dx5+a4)]
+// 上記は Appell F1 の方程式. x5, x6 が変数.
+[2705] L=horn_contiguity_from_a_shift([a,b,bp,c-1],[a,b,bp,(c-1)-1]);
+[x6*dx6+x5*dx5+c-1,1,[[a,b,bp,c-1], -> ,[a,b,bp,c-2]],[dx4,dx4,1,dx4],1]
+// c を 1 減らす contiguity を求めた.
+[2706] L2=horn_contiguity_from_a_shift([a,b,bp,c-1],[a,b,bp,(c+1)-1]);
+[(-x6+1)*dx6+(-x5+1)*dx5-a-b+c-bp,(b-c+bp)*a-c*b+c^2-bp*c,[[a,b,bp,c-1], -> ,[a,b,bp,c]],[(-x4*x6+x1*x3)*dx6+(-x4*x5+x1*x2)*dx5+(-a-b+c-bp)*x4,(b-c+bp)*a-c*b+c^2-bp*c,dx4,1],1]
+// 逆方向 c を 1 増やす contiguity を求めた.
+[2707] fctr(L2[1]);
+[[1,1],[b-c+bp,1],[a-c,1]]
+// 超幾何 b-function の因数分解
+```
+
+
+---
+
 ## 2. SageMath 連携インターフェース (`asir.sage` / `asir.py`)
 
 Risa/Asir の計算エンジンを SageMath から透過的に呼び出し、数式オブジェクトとして安全に操作するためのラッパー関数群です。
