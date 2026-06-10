@@ -6,8 +6,15 @@
 
   2026-03-06-check-horn.rr がテスト用. これを実行.
 */
-load("2026-02-28-chg-by-gkz.rr");;
-load("2025-04-01-contiguity.rr");;
+if (which("2026-02-28-chg-by-gkz.rr")) {
+  load("2026-02-28-chg-by-gkz.rr");;
+  load("2025-04-01-contiguity.rr");;
+}else if (which("tk_horn_contiguity/2026-02-28-chg-by-gkz.rr")) {
+  load("tk_horn_contiguity/2026-02-28-chg-by-gkz.rr");
+  load("tk_horn_contiguity/2025-04-01-contiguity.rr");;
+} else {
+  error("2026-02-08-chg-by-gkz.rr 2025-04-01-contiguity.rr are not found.");
+};;
 
 Xm_noX=1;;
 

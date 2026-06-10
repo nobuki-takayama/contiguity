@@ -1,0 +1,6 @@
+if (which("2026-03-01-horn-by-gkz.rr")) {
+  load("2026-03-01-horn-by-gkz.rr");;
+}else {
+  load("tk_horn_contiguity/2026-03-01-horn-by-gkz.rr");;
+};;
+end;;

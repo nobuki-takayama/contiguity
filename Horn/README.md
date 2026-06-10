@@ -34,12 +34,16 @@ GKZ 超幾何系から制限アルゴリズムを用いて、Horn 系の contigu
 
 ---
 
+### 準備
+このHornフォルダのファイルは tk_horn_contiguity フォルダの下へ
+コピーしておく. tk_horn_contiguity フォルダは作業中のフォルダかまたは ASIRLOADPATH に含まれるフォルダにおいておく.
+
 ### 例 (Gauss ${}_2F_1$).
 ```C
 //start openxm asir,  A は Gauss 超幾何の A.  
 // F[4] が Gauss 2F1 の方程式. ここからparameter は [c-1,a,b] とわかる.
 // a についての contiguity を求める.  
-[2143] import("2026-03-01-horn-by-gkz.rr");;
+[2143] import("tk_horn_by_gkz.rr");;
 [2701] A=[[1,0,0,-1],[0,1,0,1],[0,0,1,1]];  
 [[1,0,0,-1],[0,1,0,1],[0,0,1,1]]
 [2702] F=set_A(A);
@@ -59,7 +63,7 @@ GKZ 超幾何系から制限アルゴリズムを用いて、Horn 系の contigu
 ### 例 (Appell $F_1$).
 ```C
 // parameter は [a,b,bp,c-1], a,b,$b'$ (bp), c は通常の Appell F1 のパラメータ.
-[2143] import("2026-03-01-horn-by-gkz.rr");;
+[2143] import("tk_horn_by_gkz.rr");;
 [2701] A=[[1,0,0,0,1,1],
           [0,1,0,0,1,0],
           [0,0,1,0,0,1],
