@@ -36,6 +36,8 @@ extern H_a;;     // parameter a for Horn. ABCに対応.
 extern Horn_contiguity;;
 /* extern H_debug;;  // it is defined in 2026-02-28-chg-by-gkz.rr */
 
+extern H_no_short_uv;;
+
 def set_A(A) {
 /* usage: gkz_natural_params(A,B)
   H_A(b) が入力
@@ -304,6 +306,7 @@ def horn_contiguity_from_a_shift(A_start, A_end) {
     }
     
     /* 3. それでもダメなら poly_solve_linear (フォールバック) */
+    if (H_no_short_uv) Found_UV=0;
     if (Found_UV == 1) {
         U = vtol(Best_U); V = vtol(Best_V);
     } else {
